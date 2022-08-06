@@ -1,0 +1,4 @@
+This is a prac question from a Distributed and parallel processing module.
+
+The task description is as follows:
+Use the executor mechanisms available in the Java Concurrency Utilities package (i.e. java.util.concurrent) to parallelise the Mandelbrot fractal program. You should use the Callable/Future approach to control the returning of the results from the worker tasks to the main rendering thread (i.e. the worker threads should no longer call the "display" method directly, but should return their block of results). You will need to study the online Java documentation for the ExecutorService interface and the Callable interface, as well as the Executors class .
