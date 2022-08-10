@@ -5,10 +5,7 @@ import java.awt.*;
 import java.awt.event.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.concurrent.*;
 
 public class MandelbrotExecService
         extends Applet
@@ -83,21 +80,36 @@ public class MandelbrotExecService
     } // run
 
     private void generateImage()
-    { startTime = System.currentTimeMillis();
+    {
+        startTime = System.currentTimeMillis();
         for (int i = 0; i < ysize; i += taskSize)
         { // Start thread
 //            Thread t = new Thread(new MandelbrotExecService.WorkerThread(i, i+taskSize));
 //            t.start();
-            MandelbrotExecService.WorkerThread t = new MandelbrotExecService.WorkerThread(i, i+taskSize);
-            callableTasksList.add(t);
+            callableTasksList.add(new MandelbrotExecService.WorkerThread(i, i+taskSize));
         }
 //        waitForResults();
         try
         {
             all_results = executorService.invokeAll(callableTasksList);
+
+            List<byte[][]> all_future_results = new ArrayList<>();
+            for(int i =0; i< all_results.size(); i++)
+            {
+                all_future_results.add((byte[][]) all_results.get(i).get());
+            }
+
+            for(int i =0; i<all_future_results.size(); i++)
+            {
+                display(all_future_results.get(i),i);
+            }
         }
         catch (InterruptedException e)
         {
+            System.out.println("Error from invoking the tasks");
+            e.printStackTrace();
+        }
+        catch (ExecutionException e){
             e.printStackTrace();
         }
 
