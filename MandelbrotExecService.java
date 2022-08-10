@@ -32,9 +32,9 @@ public class MandelbrotExecService
     private Graphics offg;
 
     //Executor Service for scheduling and managing the thread pool
-    ExecutorService executorService = Executors.newFixedThreadPool(3);
-    List<Callable<Object>> callableTasksList = new ArrayList<>();
-    List<Future<Object>> all_results = null;
+    ExecutorService executorService ;
+    List<Callable<Results>> callableTasksList = new ArrayList<>();
+    List<Future<Results>> all_results = new ArrayList<>();
 
     public void init()
     { xsize = getSize().width;
@@ -42,6 +42,7 @@ public class MandelbrotExecService
         System.out.println("xsize = " + xsize + " ysize = " + ysize);
         taskSize = ysize / NUM_TASKS;
 
+        executorService = Executors.newFixedThreadPool(taskSize);
         // set up listeners
         this.addMouseListener(this);
         this.addMouseMotionListener(this);
@@ -83,47 +84,46 @@ public class MandelbrotExecService
     {
         startTime = System.currentTimeMillis();
         for (int i = 0; i < ysize; i += taskSize)
-        { // Start thread
-//            Thread t = new Thread(new MandelbrotExecService.WorkerThread(i, i+taskSize));
-//            t.start();
+        {
             callableTasksList.add(new MandelbrotExecService.WorkerThread(i, i+taskSize));
         }
-//        waitForResults();
         try
         {
             all_results = executorService.invokeAll(callableTasksList);
 
-            List<byte[][]> all_future_results = new ArrayList<>();
             for(int i =0; i< all_results.size(); i++)
             {
-                all_future_results.add((byte[][]) all_results.get(i).get());
-            }
-
-            for(int i =0; i<all_future_results.size(); i++)
-            {
-                display(all_future_results.get(i),i);
+                Future<Results> future = all_results.get(i);
+                display(future.get().getResults(),future.get().getStart() );
             }
         }
         catch (InterruptedException e)
         {
             System.out.println("Error from invoking the tasks");
             e.printStackTrace();
-        }
-        catch (ExecutionException e){
+        } catch (ExecutionException e) {
             e.printStackTrace();
         }
 
+        done = true;
+        long end = System.currentTimeMillis();
+        System.out.println("Time taken: " + (end-startTime) + "ms.");
+        repaint();
+
     } // generateImage
 
-    private void waitForResults ()
-    { while (progress != NUM_TASKS)
-    { try
-    { Thread.sleep(100);
-    }
-    catch (InterruptedException e)
-    { // ignore
-    }
-    }
+    private void getResultsAndDisplay()
+    {
+        while (progress != NUM_TASKS)
+        {
+            try
+            {
+                Thread.sleep(100);
+            }
+            catch (InterruptedException e)
+            { // ignore
+            }
+        }
 
         done = true;
         long end = System.currentTimeMillis();
@@ -239,7 +239,7 @@ public class MandelbrotExecService
         }
     } // inner class WindowCloser
 
-    private class WorkerThread implements Callable<Object>
+    private class WorkerThread implements Callable<Results>
     { private int start;
         private int end;
 
@@ -279,9 +279,15 @@ public class MandelbrotExecService
             //display(results, start);
         } // calculateMandelbrot
 
-        public Object call ()
+        public Results call ()
         {
-            return calculateMandelbrot();
+            Results toReturn = new Results();
+            byte[][] results = calculateMandelbrot();
+
+            toReturn.setResults(results);
+            toReturn.setStart(start);
+            toReturn.setEnd(end);
+            return toReturn;
         } // call
     } // inner class WindowCloser
 
