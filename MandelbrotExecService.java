@@ -3,8 +3,7 @@ package mandelbrot;
 import java.applet.Applet;
 import java.awt.*;
 import java.awt.event.*;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.LinkedList;
 import java.util.concurrent.*;
 
 public class MandelbrotExecService
@@ -32,9 +31,8 @@ public class MandelbrotExecService
     private Graphics offg;
 
     //Executor Service for scheduling and managing the thread pool
-    ExecutorService executorService ;
-    List<Callable<Results>> callableTasksList = new ArrayList<>();
-    List<Future<Results>> all_results = new ArrayList<>();
+    ExecutorService executorService = Executors.newFixedThreadPool(8);
+    LinkedList<Future<Results>> all_results = new LinkedList<>();
 
     public void init()
     { xsize = getSize().width;
@@ -42,7 +40,6 @@ public class MandelbrotExecService
         System.out.println("xsize = " + xsize + " ysize = " + ysize);
         taskSize = ysize / NUM_TASKS;
 
-        executorService = Executors.newFixedThreadPool(taskSize);
         // set up listeners
         this.addMouseListener(this);
         this.addMouseMotionListener(this);
@@ -85,51 +82,30 @@ public class MandelbrotExecService
         startTime = System.currentTimeMillis();
         for (int i = 0; i < ysize; i += taskSize)
         {
-            callableTasksList.add(new MandelbrotExecService.WorkerThread(i, i+taskSize));
+           Future<Results> future = executorService.submit(new MandelbrotExecService.WorkerThread(i, i+taskSize));
+           all_results.add(future);
         }
-        try
-        {
-            all_results = executorService.invokeAll(callableTasksList);
 
-            for(int i =0; i< all_results.size(); i++)
+        while(all_results.size()>0)
+        {
+            Future<Results> future = all_results.removeFirst();
+            Results futureResult = new Results();
+            try
             {
-                Future<Results> future = all_results.get(i);
-                display(future.get().getResults(),future.get().getStart() );
+                futureResult = (Results) future.get();
             }
+            catch(Exception e){
+                System.out.println("Error while getting thread results \n"+e );
+            }
+            progress+= taskSize;
+            display(futureResult.getResults(), futureResult.getStart());
         }
-        catch (InterruptedException e)
-        {
-            System.out.println("Error from invoking the tasks");
-            e.printStackTrace();
-        } catch (ExecutionException e) {
-            e.printStackTrace();
-        }
-
         done = true;
         long end = System.currentTimeMillis();
         System.out.println("Time taken: " + (end-startTime) + "ms.");
         repaint();
 
     } // generateImage
-
-    private void getResultsAndDisplay()
-    {
-        while (progress != NUM_TASKS)
-        {
-            try
-            {
-                Thread.sleep(100);
-            }
-            catch (InterruptedException e)
-            { // ignore
-            }
-        }
-
-        done = true;
-        long end = System.currentTimeMillis();
-        System.out.println("Time taken: " + (end-startTime) + "ms.");
-        repaint();
-    } // waitForResults
 
     public void mouseDragged (MouseEvent e)
     { int x = e.getX();
@@ -291,4 +267,34 @@ public class MandelbrotExecService
         } // call
     } // inner class WindowCloser
 
+    private class Results
+    {
+        private int start;
+        private int end;
+        private byte[][] results;
+
+        public int getStart() {
+            return start;
+        }
+
+        public void setStart(int start) {
+            this.start = start;
+        }
+
+        public byte[][] getResults() {
+            return results;
+        }
+
+        public void setResults(byte[][] results) {
+            this.results = results;
+        }
+
+        public int getEnd() {
+            return end;
+        }
+
+        public void setEnd(int end) {
+            this.end = end;
+        }
+    }
 } // class MandelbrotExecService
